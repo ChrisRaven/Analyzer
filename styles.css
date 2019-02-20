@@ -399,7 +399,7 @@ table.dataTable tbody>tr.selected,table.dataTable tbody>tr>.selected{background-
   background-color: rgba(29,29,32,.8);
   border-radius: 8px;
   color: #a3b3bf;
-  width: 150px;
+  width: 200px;
 }
 
 #K_controlPanel > div,
@@ -410,6 +410,7 @@ table.dataTable tbody>tr.selected,table.dataTable tbody>tr>.selected{background-
   padding: 2px;
   margin: 2px;
   cursor: pointer;
+  padding-left: 20px;
 }
 
 #K_importFromFileWrapper {
@@ -591,4 +592,14 @@ table.dataTable tbody>tr.selected,table.dataTable tbody>tr>.selected{background-
 #K_addCellsManual > input {
   display: inline-block;
   margin-left: 10px;
+}
+
+
+
+.dataTables_scrollHeadInner {
+  width: auto !important;
+}
+
+.dataTables_scrollHeadInner > table {
+  width: auto !important;
 }

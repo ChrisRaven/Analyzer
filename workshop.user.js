@@ -1085,6 +1085,19 @@ else {
       K.gid('K_popupCancelButton').addEventListener('click', function () {
         _this.cancelCallback();
       });
+
+      this.background.addEventListener('click', function () {
+        _this.cancelCallback();
+      });
+
+      if (!document.body.classList.contains('K_popup_esc_added')) {
+        document.body.classList.add('K_popup_esc_added');
+        document.addEventListener('keyup', function(evt) {
+          if (evt.keyCode == 27) {
+              _this.cancelCallback();
+          }
+        });
+      }
     }
 
     setContent(content) {
@@ -1319,7 +1332,7 @@ else {
       data.target = target;
       data.uuid = workspace.uuid || K.uuid();
       data.worldPosition = this.getWorldPosition();
-      data.date = Date.toISOString().split('.')[0]; // the last part to get rid of the milliseconds part and the timezone designator
+      data.date = new Date().toISOString().split('.')[0]; // the last part to get rid of the milliseconds part and the timezone designator
 
       data.lastSelectedCube = currentCube ? currentCube[0].id : null;
 
@@ -1360,14 +1373,14 @@ else {
           <label><input type="radio" name="K_browseChooseSource" value="localStorage" checked="checked">Local Storage</label>
           <label><input type="radio" name="K_browseChooseSource" value="server">Server</label>
         </div>
-        <table id="example" class="display" width="100%"></table>
+        <table id="K_browseTable" class="display" width="100%"></table>
       `);
 
       K.gid('K_popup').style.height = '600px';
       K.gid('K_popup').style.width = '1100px';
 
-      this.table = $('#example').DataTable( {
-        select: { style: 'single', info: false },
+      this.table = $('#K_browseTable').DataTable( {
+        select: { style: 'single', info: false, selector: 'td:not(.prevent-selection)' },
         scrollY: 350,
         scrollCollapse: true,
         autoWidth: false,
@@ -1379,17 +1392,15 @@ else {
           { title: 'Author' },
           { title: 'Tags', width: 80 },
           { title: 'Rights', width: 50, className: 'dt-body-right' },
-          { title: 'Source', width: 50, className: 'dt-body-right' }
+          { title: 'Source', width: 50, className: 'dt-body-right' },
+          { title: 'Action', className: 'dt-body-right prevent-selection' }
         ]
       } );
 
       this.fillList('localStorage');
 
-      this.table.on('dblclick', 'tr', function () {
-        console.log(this)
-      });
-
       K.gid('K_browseChooseSource').addEventListener('change', this.K_browseChooseSource_changeListener.bind(this));
+      K.gid('K_browseTable').addEventListener('click', this.K_browseTable_clickButtonListener.bind(this));
     }
 
     K_browseChooseSource_changeListener(evt) {
@@ -1400,9 +1411,96 @@ else {
       this.fillList(evt.target.value);
     }
 
+    K_browseTable_clickButtonListener(evt) {
+      let _this = this;
+
+      if (evt.target.nodeName !== 'BUTTON') {
+        return;
+      }
+
+      let row = this.table.row($(evt.target).parents('tr'));
+      let data =row.data()[9];
+      let popup = new Attention.Confirmation({
+        situation: 'information calm',
+        title: 'Deleting workspace',
+        message: `Do you want to delete workspace named "${data.name}"?`,
+        ok: { label: 'Yes', klass: 'flat' },
+        cancel: { label: 'No', klass: 'flat' }
+      });
+    
+      popup.show();
+      popup.on('ok', function () {
+        _this.deleteWorkspace(data.uuid, data.source || data.target, row);
+      });
+    }
+
+    deleteWorkspace(uuid, target, row) {
+      if (target === 'localStorage') {
+        this.deleteWorkspaceFromLocalStorage(uuid, row);
+      }
+      else if (target === 'server') {
+        this.deleteWorkspaceFromServer(uuid, row);
+      }
+    }
+
+    deleteWorkspaceFromLocalStorage(uuid, row) {
+      let data = K.ls.get('ewc');
+      if (!data) {
+        return;
+      }
+
+      data = JSON.parse(data);
+      Object.keys(data).forEach(function (key) {
+        if (data[key].uuid === uuid) {
+          delete data[key];
+          row.remove().draw();
+        }
+      });
+
+      K.ls.set('ewc', JSON.stringify(data));
+    }
+
+    deleteWorkspaceFromServer(uuid, row) {
+      K.XHR({
+        url: serverPath + 'delete_workspace.php',
+        method: 'POST',
+        data: 'uuid=' + uuid + '&author=' + account.account.username,
+        success: function (result) {
+          if (result && result === 'ok') {
+            row.remove().draw();
+          }
+        }
+      });
+    }
+
     confirmCallback() {
-      workshop.controlPanel.addFromJSON(this.table.rows({selected: true}).data()[0][8]);
-      super.confirmCallback();
+      let _this = this;
+
+      if (!this.table.rows({selected: true}).count()) {
+        tomni.notificationManager.addChip({title: 'You must select a workspace'});
+        return;
+      }
+
+      let superconfirmCallback = super.confirmCallback.bind(this);
+      if (this.unsaved) {
+        var popup = new Attention.Confirmation({
+          situation: 'information calm',
+          title: 'Opening workspace',
+          message: 'You have unsaved changes in the workspace. Do you want to open another one?',
+          ok: { label: 'Yes', klass: 'flat' },
+          cancel: { label: 'No', klass: 'flat' }
+        });
+      
+        popup.show();
+        popup.on('ok', function () {
+          workshop.controlPanel.addFromJSON(_this.table.rows({selected: true}).data()[0][9]);
+          superconfirmCallback();
+        });
+      }
+      else {
+        workshop.controlPanel.addFromJSON(this.table.rows({selected: true}).data()[0][9]);
+        superconfirmCallback();
+      }
     }
 
     getEntriesFromLocalStorage(callback) {
@@ -1421,6 +1519,7 @@ else {
               row.tags,
               '',
               'localStorage',
+              '<button>Delete</button>',
               row // saving here the whole data to easier retrieve it when displaing a cell
             ];
             arr.push(rowArr);
@@ -1463,14 +1562,16 @@ else {
             delete row[10];
             delete row[11];
             array[index][2] = Object.keys(JSON.parse(row[2])).join(', ');
-            array[index][8] = data;
+            array[index][8] = data.author === account.account.username ? '<button>Delete</button>' : '';
+            array[index][9] = data;
+            
           });
           callback(result);
         }
       });
     }
 
-    fillListHelper(entries) {console.log(entries)
+    fillListHelper(entries) {
       if (!entries) {
         return;
       }
@@ -1601,6 +1702,11 @@ else {
 
 
     confirmCallback() {
+      if (!this.table.rows({selected: true}).count()) {
+        tomni.notificationManager.addChip({title: 'You must select at least one cell'});
+        return;
+      }
+
       this.selectedCells.forEach(id => workshop.addCell(id));
       super.confirmCallback();
     }
