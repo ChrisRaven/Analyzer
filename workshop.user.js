@@ -511,19 +511,28 @@ else {
 
     enterWorkshop() {
       this.saveOriginalState();
+      tomni.threeD.removeCells();
       this.changeUIVisibility('hidden');
       this.changeHeatMap('none');
+      tomni.prefs.set('outlineGlowIntensity', 0);
+      tomni.prefs.set('playerActivityIcons', 0);
+      tomni.threeD.hidePlayerActivityIcons();
       $(document).keyup(this.heatmapHotKeysBlocker);
       this.controlPanel.show();
       this.list.show();
+      this.changeAccuracyContainerVisibility('none');
     }
 
     exitWorkshop_confirm() {
       this.list.hide();
       this.controlPanel.hide();
       $(document).off('keyup', this.heatmapHotKeysBlocker);
-      this.changeHeatMap(this.originalHeatmap);
       this.changeUIVisibility('visible');
+      this.removeAll();
+      if (tomni.prefs.get('playerActivityIcons')) {
+        tomni.threeD.showPlayerActivitiyIcons();
+      }
+      this.changeAccuracyContainerVisibility('inline-block');
       this.restoreOriginalState();
     }
     
@@ -565,12 +574,28 @@ else {
     saveOriginalState() {
       this.originalCell = tomni.cell;
       this.originalHeatmap = K.gid('highlightMethod').value;
-      tomni.threeD.removeCells();
+      this.glow = tomni.prefs.get('outlineGlowIntensity');
+      this.activityIcons = tomni.prefs.get('playerActivityIcons');
+      K.ls.set('workshop-originals', JSON.stringify({
+        heatmap: this.originalHeatmap,
+        glow: this.glow,
+        activityIcons: this.activityIcons
+      }));
     }
 
     restoreOriginalState() {
-      this.removeAll();
       this.addCell(this.originalCell, true);
+      this.changeHeatMap(this.originalHeatmap);
+      tomni.prefs.set('outlineGlowIntensity', this.glow);
+      tomni.prefs.set('playerActivityIcons', this.activityIcons);
+      K.ls.remove('workshop-originals');
+    }
+
+    changeAccuracyContainerVisibility(state) {
+      let accuracyContainer = K.gid('accuracy-container');
+      if (accuracyContainer) {
+        accuracyContainer.style.display = state;
+      }
     }
 
     hideControlPanel() {
@@ -588,7 +613,7 @@ else {
       K.XHR({
         url: '/1.0/cell/' + id,
         success: function (data) {
-          tomni.threeD.addCell({cellid: id});
+          tomni.threeD.addCell({cellid: id, center: true});
 
           if (exit) {
             return;
@@ -1766,6 +1791,17 @@ else {
 
     workshop = new Workshop();
 
+    let originals = K.ls.get('workshop-originals');
+    if (originals) {// user closed the tab/browser or refreshed the page without backing to the game
+      originals = JSON.parse(originals);
+      workshop.changeHeatMap(originals.heatmap);
+      tomni.prefs.set('outlineGlowIntensity', originals.glow);
+      tomni.prefs.set('playerActivityIcons', originals.activityIcons);
+      if (originals.activityIcons) {
+        tomni.threeD.showPlayerActivitiyIcons();
+      }
+      K.ls.remove('workshop-originals');
+    }
   }
 
   
