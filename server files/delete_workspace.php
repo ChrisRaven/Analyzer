@@ -18,11 +18,13 @@ header('Access-Control-Allow-Origin: ' . $domain);
 header('Access-Control-Allow-Credentials: true'); // source: https://stackoverflow.com/a/47993517
 
 $author = $_POST['author'];
+$uuid = $_POST['uuid'];
 
-$req = $pdo->prepare('SELECT `name`, `description`, `cells`, `creation_date`, `author`, `rights`, "server" as "source", `uuid`, `world_position`, `active`, `last_selected_cube` FROM workspaces WHERE author = :author OR rights = 1 OR rights = 2');
+$req = $pdo->prepare('DELETE FROM workspaces WHERE author = :author AND uuid = :uuid');
 $req->bindValue(':author', $author, PDO::PARAM_STR);
+$req->bindValue(':uuid', $uuid, PDO::PARAM_STR);
 $req->execute();
 
 if ($req->rowCount()) {
-  echo json_encode($req->fetchAll(PDO::FETCH_NUM));
+  echo 'ok';
 }

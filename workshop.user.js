@@ -225,7 +225,7 @@ g.ext.buttons["select"+c+"s"]={text:p("select"+c+"s","Select "+b+"s"),className:
 
 
 
-let LOCAL = true;
+let LOCAL = false;
 let serverPath = '';
 if (LOCAL) {
   console.log('%c--== TURN OFF "LOCAL" BEFORE RELEASING!!! ==--', "color: red; font-style: italic; font-weight: bold;");
@@ -441,7 +441,6 @@ else {
       this.name = '';
       this.description = '';
       this.author = '';
-      this.tags = '';
       this.rights = '';
       this.target = '';
     }
@@ -482,7 +481,6 @@ else {
       this.list = new List(this);
       this.controlPanel = new ControlPanel(this);
       this.workspace = new Workspace();
-      this.cells = [];
       this.unsaved = false;
       document.addEventListener('K_cellLoaded', this.K_document_cellLoadedListener.bind(this));
       this.heatmapHotKeysBlocker = function () { return false; };
@@ -742,7 +740,6 @@ else {
         uuid: this.imported.uuid,
         name: this.imported.name,
         description: this.imported.description,
-        tags: this.imported.tags,
         rights: this.imported.rights,
         target: 'file'
       });
@@ -1142,6 +1139,8 @@ else {
       this.setContent(`
         <div class="K_popupLabel">Name</div>
         <div><input id="K_saveName"></div>
+        <div class="K_popupLabel">Description</div>
+        <textarea id="K_saveDescription"></textarea>
         <div class="K_popupRadioGroup" id="K_saveChooseTarget">
           <div class="K_popupLabel">Target</div>
           <label><input type="radio" name="K_saveChooseTarget" value="localStorage">to Local Storage</label>
@@ -1156,7 +1155,7 @@ else {
         </div>
       `);
       
-      K.gid('K_popup').style.height = '300px';
+      K.gid('K_popup').style.height = '380px';
 
       let target = 0;
       switch (workspace.target) {
@@ -1187,12 +1186,12 @@ else {
 
     showRights() {
       K.gid('K_saveAccessRights').style.display = 'block';
-      K.gid('K_popup').style.height = '300px';
+      K.gid('K_popup').style.height = '380px';
     }
 
     hideRights() {
       K.gid('K_saveAccessRights').style.display = 'none';
-      K.gid('K_popup').style.height = '200px';
+      K.gid('K_popup').style.height = '280px';
     }
 
     K_saveChooseTarget_changeListener(evt) {
@@ -1297,7 +1296,7 @@ else {
     }
 
 
-    static save(name, target) {
+    static save(name, target, description = '', rights = 0) {
       let wholeCells = workshop.cellsInUse;
       let workspace = workshop.workspace;
 
@@ -1319,22 +1318,16 @@ else {
       let data = {
         cells: cells,
         name: name,
-        description: workspace.description,
+        description: description,
         author: account.account.username,
-        tags: workspace.tags,
-        rights: workspace.rights,
-        active: workshop.active
+        rights: rights,
+        active: workshop.active,
+        target: target,
+        uuid: workspace.uuid || K.uuid(),
+        worldPosition: this.getWorldPosition(),
+        date: new Date().toISOString().split('.')[0], // the last part to get rid of the milliseconds part and the timezone designator        
+        lastSelectedCube: currentCube ? currentCube[0].id : null
       };
-
-      Object.assign(data, workshop.workspace);
-      data.author = account.account.username;
-      data.name = name;
-      data.target = target;
-      data.uuid = workspace.uuid || K.uuid();
-      data.worldPosition = this.getWorldPosition();
-      data.date = new Date().toISOString().split('.')[0]; // the last part to get rid of the milliseconds part and the timezone designator
-
-      data.lastSelectedCube = currentCube ? currentCube[0].id : null;
 
       switch (target) {
         case 'server': this.saveToServer(data); break;
@@ -1346,6 +1339,7 @@ else {
 
     confirmCallback() {
       let name = K.gid('K_saveName').value.trim();
+      let description = K.gid('K_saveDescription').value.trim();
       let target = K.qS('input[name=K_saveChooseTarget]:checked').value;
 
       let rights;
@@ -1357,7 +1351,7 @@ else {
         tomni.notificationManager.addChip({title: 'Name field cannot be empty'});
         return;
       }
-      this.constructor.save(name, target, rights);
+      this.constructor.save(name, target, description, rights);
 
       super.confirmCallback();
     }
@@ -1390,7 +1384,6 @@ else {
           { title: 'Cells', width: 100 },
           { title: 'Date', width: 80, className: 'dt-body-right' },
           { title: 'Author' },
-          { title: 'Tags', width: 80 },
           { title: 'Rights', width: 50, className: 'dt-body-right' },
           { title: 'Source', width: 50, className: 'dt-body-right' },
           { title: 'Action', className: 'dt-body-right prevent-selection' }
@@ -1419,7 +1412,7 @@ else {
       }
 
       let row = this.table.row($(evt.target).parents('tr'));
-      let data =row.data()[9];
+      let data =row.data()[8];
       let popup = new Attention.Confirmation({
         situation: 'information calm',
         title: 'Deleting workspace',
@@ -1493,12 +1486,12 @@ else {
       
         popup.show();
         popup.on('ok', function () {
-          workshop.controlPanel.addFromJSON(_this.table.rows({selected: true}).data()[0][9]);
+          workshop.controlPanel.addFromJSON(_this.table.rows({selected: true}).data()[0][8]);
           superconfirmCallback();
         });
       }
       else {
-        workshop.controlPanel.addFromJSON(this.table.rows({selected: true}).data()[0][9]);
+        workshop.controlPanel.addFromJSON(this.table.rows({selected: true}).data()[0][8]);
         superconfirmCallback();
       }
     }
@@ -1512,11 +1505,10 @@ else {
             let row = obj[key];
             let rowArr = [
               row.name,
-              row.description,
+              row.description || '',
               Object.keys(row.cells).join(', '),
               row.date || '',
               account.account.username,
-              row.tags,
               '',
               'localStorage',
               '<button>Delete</button>',
@@ -1548,22 +1540,21 @@ else {
               cells: JSON.parse(row[2]),
               date: row[3],
               author: row[4],
-              tags: row[5],
-              rights: row[6],
-              source: row[7],
-              uuid: row[8],
-              worldPosition: JSON.parse(row[9]),
-              active: row[10],
-              lastSelectedCube: row[11]
+              rights: row[5],
+              source: row[6],
+              uuid: row[7],
+              worldPosition: JSON.parse(row[8]),
+              active: row[9],
+              lastSelectedCube: row[10]
             }
-            // splicing the array didn't effect the "array"
+            // splicing the array didn't affect the "array"
+            delete row[7];
             delete row[8];
             delete row[9];
             delete row[10];
-            delete row[11];
             array[index][2] = Object.keys(JSON.parse(row[2])).join(', ');
-            array[index][8] = data.author === account.account.username ? '<button>Delete</button>' : '';
-            array[index][9] = data;
+            array[index][7] = data.author === account.account.username ? '<button>Delete</button>' : '';
+            array[index][8] = data;
             
           });
           callback(result);
@@ -1602,8 +1593,6 @@ else {
     constructor (title, confirmText, cancelText) {
       super(title, confirmText, cancelText);
 
-      let _this = this;
-
       this.setContent(`
         <div id="K_addCellsAux">
           <label id="K_addCellsManual">Manual adding<input></label>
@@ -1617,25 +1606,48 @@ else {
       K.gid('K_popup').style.width = '1100px';
       K.gid('K_loading').style.display = 'flex';
 
-      if (!workshop.cells.length) {
-        K.XHR({
-          url: serverPath + 'get_cells.php',
-          method: 'POST',
-          withCredentials: true,
-          success: function (data) {
-            if (!data) {
-              return;
-            }
+      this.getCellList();
+    }
 
-            workshop.cells = JSON.parse(data);
+    getCellList() {
+      let _this = this;
+
+      K.XHR({
+        url: serverPath + 'get_cells.php',
+        method: 'POST',
+        withCredentials: true,
+        success: function (data) {
+          if (!data) {
+            return;
+          }
+
+          let Kscripts = K.qSa('.Kcells');
+          let added = false;
+          Kscripts.forEach(el => {
+            if (el.src === serverPath + data) {
+              added = true;
+            }
+            else {
+              el.remove(); // to get rid of all the other copies of the db
+            }
+          });
+
+          if (added) {
             _this.fillTable();
-          },
-          error: function () {console.log('error')}
-        });
-      }
-      else {
-        this.fillTable();
-      }
+            return;
+          }
+
+          let script = document.createElement('script');
+          script.type = 'text/javascript';
+          script.classList.add('Kcells');
+          document.body.appendChild(script);
+          script.onload = function () {
+            _this.fillTable();
+          }
+          script.src = serverPath + data;
+        },
+        error: function () {console.log('error')}
+      });
 
       K.qS('#K_addCellsManual > input').addEventListener('keyup', this.updateCellsList.bind(this));
     }
@@ -1675,7 +1687,7 @@ else {
 
       this.table = $('#K_addCellsTable').DataTable({
         select: { style: 'multi' },
-        data: workshop.cells,
+        data: document.Kcells,
         scrollY: 430,
         scrollCollapse: true,
         autoWidth: false,
@@ -1702,7 +1714,7 @@ else {
 
 
     confirmCallback() {
-      if (!this.table.rows({selected: true}).count()) {
+      if (!this.selectedCells.length) {
         tomni.notificationManager.addChip({title: 'You must select at least one cell'});
         return;
       }

@@ -559,6 +559,17 @@ table.dataTable tbody>tr.selected,table.dataTable tbody>tr>.selected{background-
   font-size: 16px;
 }
 
+#K_saveDescription {
+  background-color: #4c525d;
+  border: 1px solid black;
+  border-radius: 8px;
+  width: 270px;
+  margin-left: 5px;
+  color: #a3b3bf;
+  padding-left: 10px;
+  font-size: 16px;
+}
+
 
 #K_addCellsSelectedCellsIds {
   visibility: hidden;

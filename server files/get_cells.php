@@ -17,10 +17,5 @@ session_start();
 header('Access-Control-Allow-Origin: ' . $domain);
 header('Access-Control-Allow-Credentials: true'); // source: https://stackoverflow.com/a/47993517
 
-
-$result = $pdo->query("SELECT `cell_id`, `name`, `size`, `description`, CASE WHEN `status` = 1 THEN 'Completed' ELSE NULL END, `creation_date`, `completion_date`, `dataset` FROM cells");
-
-if ($result->rowCount()) {
-  echo json_encode($result->fetchAll(PDO::FETCH_NUM));
-}
+echo glob('cells_from_db_*.js')[0];
 
