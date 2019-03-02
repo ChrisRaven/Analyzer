@@ -428,7 +428,7 @@ table.dataTable tbody>tr.selected,table.dataTable tbody>tr>.selected{background-
 #K_listPanel {
   position: absolute;
   left: 10px;
-  top: 210px;
+  top: 330px;
   background-color: rgba(29,29,32,.8);
   border-radius: 8px;
   color: #a3b3bf;
@@ -612,5 +612,32 @@ table.dataTable tbody>tr.selected,table.dataTable tbody>tr>.selected{background-
 }
 
 .dataTables_scrollHeadInner > table {
-  width: auto !important;
+  width: 100% !important;
+}
+
+#K_infoPanel {
+  width: 190px;
+  height: 100px;
+  position: absolute;
+  left: 10px;
+  top: 215px;
+  padding: 5px;
+  border-radius: 8px;
+  background-color: rgba(29,29,32,.8);
+  color: #a3b3bf;
+  overflow-y: auto;
+  font-size: 12px;
+  display: none;
+}
+
+#K_infoPanel > table td:nth-child(1) {
+  vertical-align: top;
+}
+
+#K_infoPanel > table td:nth-child(2), #K_infoPanel_description {
+  color: #eee;
+}
+
+#K_infoPanel_description_row {
+  display: none;
 }

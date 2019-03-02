@@ -19,10 +19,19 @@ header('Access-Control-Allow-Credentials: true'); // source: https://stackoverfl
 
 $author = $_POST['author'];
 
-$req = $pdo->prepare('SELECT `name`, `description`, `cells`, `creation_date`, `author`, `rights`, "server" as "source", `uuid`, `world_position`, `active`, `last_selected_cube` FROM workspaces WHERE author = :author OR rights = 1 OR rights = 2');
+$req = $pdo->prepare('SELECT `name`, `description`, `cells`, `creation_date`, `author`,
+CASE `rights`
+  WHEN 0 THEN "private"
+  WHEN 1 THEN "readonly"
+  WHEN 2 THEN "fullaccess"
+  END AS "rights",
+"server" as "target", `uuid`, `world_position`, `active`, `last_selected_cube` FROM workspaces WHERE author = :author OR rights = 1 OR rights = 2');
 $req->bindValue(':author', $author, PDO::PARAM_STR);
 $req->execute();
 
 if ($req->rowCount()) {
   echo json_encode($req->fetchAll(PDO::FETCH_NUM));
+}
+else {
+  echo 'empty';
 }

@@ -27,8 +27,8 @@ switch ($cells->rights) {
   default: $rights = 0;
 }
 
-$req = $pdo->prepare('INSERT INTO workspaces (`uuid`, `name`, `description`, `cells`, `author`, `rights`, `creation_date`, `world_position`, `active`, `last_selected_cube`)
-VALUES (:uuid, :name, :description, :cells, :author, :tags, :rights, NOW(), :world_position, :active, :last_selected_cube)');
+$req = $pdo->prepare('REPLACE INTO workspaces (`uuid`, `name`, `description`, `cells`, `author`, `rights`, `creation_date`, `world_position`, `active`, `last_selected_cube`)
+VALUES (:uuid, :name, :description, :cells, :author, :rights, NOW(), :world_position, :active, :last_selected_cube)');
 $req->bindValue(':uuid', $cells->uuid, PDO::PARAM_STR);
 $req->bindValue(':name', $cells->name, PDO::PARAM_STR);
 $req->bindValue(':description', $cells->description, PDO::PARAM_STR);

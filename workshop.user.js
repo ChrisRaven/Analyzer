@@ -225,7 +225,7 @@ g.ext.buttons["select"+c+"s"]={text:p("select"+c+"s","Select "+b+"s"),className:
 
 
 
-let LOCAL = false;
+let LOCAL = true;
 let serverPath = '';
 if (LOCAL) {
   console.log('%c--== TURN OFF "LOCAL" BEFORE RELEASING!!! ==--', "color: red; font-style: italic; font-weight: bold;");
@@ -431,7 +431,7 @@ else {
     };
   }
 
-  let settings;
+  // let settings;
   let workshop;
 
 
@@ -479,17 +479,11 @@ else {
       this.cellsInUse = {};
       this.active = null;
       this.list = new List(this);
+      this.infoPanel = new InfoPanel(this);
       this.controlPanel = new ControlPanel(this);
       this.workspace = new Workspace();
       this.unsaved = false;
-      document.addEventListener('K_cellLoaded', this.K_document_cellLoadedListener.bind(this));
       this.heatmapHotKeysBlocker = function () { return false; };
-    }
-
-    K_document_cellLoadedListener(evt) {
-      if (this.cellsInUse[evt.detail.cellId]) {
-        this.cellsInUse[evt.detail.cellId].cubes = evt.detail.cubeIds;
-      }
     }
 
     addMenuEntry() {
@@ -502,6 +496,14 @@ else {
       menuLink.addEventListener('click', function () {
         _this.enterWorkshop();
       });
+    }
+
+    getRightsByName(rights) {
+      switch (rights) {
+        case 'private': return 0;
+        case 'readonly': return 1;
+        case 'fullaccess': return 2;
+      }
     }
 
     changeHeatMap(heatmap) {
@@ -519,13 +521,16 @@ else {
       tomni.threeD.hidePlayerActivityIcons();
       $(document).keyup(this.heatmapHotKeysBlocker);
       this.controlPanel.show();
+      this.infoPanel.show();
       this.list.show();
       this.changeAccuracyContainerVisibility('none');
     }
 
     exitWorkshop_confirm() {
       this.list.hide();
+      this.infoPanel.hide();
       this.controlPanel.hide();
+      this.workspace.clear();
       $(document).off('keyup', this.heatmapHotKeysBlocker);
       this.changeUIVisibility('visible');
       this.removeAll();
@@ -537,7 +542,7 @@ else {
     }
     
     exitWorkshop() {
-      let _this =this;
+      let _this = this;
 
       if (this.unsaved) {
         var popup = new Attention.Confirmation({
@@ -626,6 +631,8 @@ else {
           flags += data.is_marathon ? 'M' : '';
           flags += data.is_accelerated ? 'A' : '';
           flags += data.is_showcase ? 'S' : '';
+
+          let color = ColorUtils.rgbToHex(tomni.threeD.getCell(id).rgb);
               
           _this.cellsInUse[id] = new Cell({
             id: data.id,
@@ -637,11 +644,12 @@ else {
             completed: !!data.completed,
             creationDate: data.created,
             completionDate: data.completed,
-            dataset: data.dataset_id
+            dataset: data.dataset_id,
+            color: color
           });
 
           _this.active = id;
-          _this.list.addEl({id: id, color: ColorUtils.rgbToHex(tomni.threeD.getCell(id).rgb)});
+          _this.list.addEl({id: id, color: color, name: data.name});
           _this.unsaved = true;
         },
         error: function () {
@@ -756,17 +764,24 @@ else {
         tomni.notificationManager.addChip({title: 'Error during reading the resource'});
         return;
       }
-      
+
       workshop.removeAll();
 
       this.imported = data;
+
+      this.workshop.infoPanel.name = this.imported.name || '<i>[none]';
+      this.workshop.infoPanel.description = this.imported.description || '';
+      this.workshop.infoPanel.author = this.imported.author || '<i>[you]</i>';
+      this.workshop.infoPanel.location = this.imported.target || '<i>[not set]</i>';
+      this.workshop.infoPanel.rights = this.imported.rights || '<i>[not set]</i>';
       Object.keys(this.imported.cells).forEach(cell => workshop.addCell(cell));
       Object.assign(this.workshop.workspace, {
+        author: this.imported.author,
         uuid: this.imported.uuid,
         name: this.imported.name,
         description: this.imported.description,
         rights: this.imported.rights,
-        target: 'file'
+        target: data.target
       });
     }
      
@@ -805,18 +820,26 @@ else {
     }
 
     K_save_clickListener() {
-      let currentUser = account.account.username;
+      let currentUser = 'KrzysztofKruk'; // account.account.username; // TEMP
       let workspace = this.workshop.workspace;
 
       if (
         !workspace.target ||
-        (workspace.author !== currentUser && workspace.target === 'server' && worspace.rights === 'readonly')
+        (workspace.author !== currentUser && workspace.target === 'server' && 
+          (workspace.rights === 'readonly' || workspace.rights === 'private')
+        )
         ) {
         let panel = new SavePopup('Saving', 'Save', 'Cancel');
         panel.show();
       }
       else {
-        SavePopup.save(workspace.name, workspace.target, workspace.rights);
+        SavePopup.save({
+          name: workspace.name,
+          target: workspace.target,
+          rights: workspace.rights,
+          description: workspace.description,
+          saveAs: false
+        });
       }
     }
 
@@ -883,6 +906,10 @@ else {
         return;
       }
 
+      if (this.workshop.cellsInUse[evt.detail.cellId]) {
+        this.workshop.cellsInUse[evt.detail.cellId].cubes = evt.detail.cubeIds;
+      }
+
       workshop.changeCellColor(cellId, cell.color);
       if (cell.color) {
         let listRow = K.gid(workshop.list.prefix + cellId);
@@ -925,6 +952,64 @@ else {
     K_browse_clickListener() {
       let panel = new BrowsePopup('Browsing', 'Open', 'Cancel');
       panel.show();
+    }
+  }
+
+
+  class InfoPanel {
+    constructor (workshop) {
+      this.workshop = workshop;
+
+      this.panel = document.createElement('div');
+      this.panel.id = 'K_infoPanel';
+      this.panel.innerHTML = `
+        <table>
+          <tr><td>Name:</td><td id="K_infoPanel_name"></td></tr>
+          <tr><td>Description:</td><td id="K_infoPanel_emptyDescription"></td></tr>
+          <tr id="K_infoPanel_description_row"><td colspan=2 id="K_infoPanel_description"</td></tr>
+          <tr><td>Author:</td><td id="K_infoPanel_author"></td></tr>
+          <tr><td>Location:</td><td id="K_infoPanel_location"></td></tr>
+          <tr><td>Rights:</td><td id="K_infoPanel_rights"></td></tr>
+        </table>
+      `;
+      document.body.append(this.panel);
+
+    }
+
+    set name(name) {
+      K.gid('K_infoPanel_name').innerHTML = name;
+    }
+
+    set description(desc) {
+      if (!desc) {
+        K.gid('K_infoPanel_emptyDescription').innerHTML = '<i>[none]</i>';
+        K.gid('K_infoPanel_description_row').style.display = 'none';
+      }
+      else {
+        K.gid('K_infoPanel_emptyDescription').innerHTML = '';
+        K.gid('K_infoPanel_description_row').style.display = 'table-row';
+        K.gid('K_infoPanel_description').innerHTML = desc;
+      }
+    }
+
+    set author(author) {
+      K.gid('K_infoPanel_author').innerHTML = author;
+    }
+
+    set location(location) {
+      K.gid('K_infoPanel_location').innerHTML = location;
+    }
+
+    set rights(rights) {
+      K.gid('K_infoPanel_rights').innerHTML = rights;
+    }
+
+    show() {
+      this.panel.style.display = 'block';
+    }
+
+    hide() {
+      this.panel.style.display = 'none';
     }
   }
 
@@ -1045,7 +1130,7 @@ else {
           <label class="K_listColor_wrapper" style="background-color: ${args.color};" title="select color">
             <input type="color" class="K_listColor" value="${args.color}">
           </label>
-          <div class="K_listId" title="cell ID">${args.id}</div>
+          <div class="K_listId" title="${args.name}">${args.id}</div>
           <div class="K_listMakeActive" title="make cell active">A</div>
           <div class="K_listBlink" title="blink cell">B</div>
           <div class="K_listRemove" title="remove cell">R</div>
@@ -1136,6 +1221,7 @@ else {
 
       K.gid('content').classList.add('glassify');
       K.gid('K_controlPanel').classList.add('glassify');
+      K.gid('K_infoPanel').classList.add('glassify');
       K.gid('K_listPanel').classList.add('glassify');
     }
 
@@ -1145,6 +1231,7 @@ else {
 
       K.gid('content').classList.remove('glassify');
       K.gid('K_controlPanel').classList.remove('glassify');
+      K.gid('K_infoPanel').classList.remove('glassify');
       K.gid('K_listPanel').classList.remove('glassify');
     }
 
@@ -1175,8 +1262,8 @@ else {
         <div class="K_popupRadioGroup" id="K_saveAccessRights">
           <div class="K_popupLabel">Access rights</div>
           <label><input type="radio" name="K_saveToServerAs" value="private" checked="checked">private</label>
-          <label><input type="radio" name="K_saveToServerAs" value="readonly">readable for everybody</label>
-          <label><input type="radio" name="K_saveToServerAs" value="fullaccess">readable and writable by everybody</label>
+          <label><input type="radio" name="K_saveToServerAs" value="readonly">readable for everybody (readonly)</label>
+          <label><input type="radio" name="K_saveToServerAs" value="fullaccess">readable and writable by everybody (fullaccess)</label>
         </div>
       `);
       
@@ -1201,9 +1288,12 @@ else {
       }
 
       K.qSa('#K_saveChooseTarget input')[target].checked = 'checked';
+      if (workspace.target === 'server') {
+        K.qSa('#K_saveAccessRights input')[workshop.getRightsByName(workspace.rights)].checked = 'checked';
+      }
 
-      if (workshop.workspace.name) {
-        K.gid('K_saveName').value = workshop.workspace.name;
+      if (workspace.name) {
+        K.gid('K_saveName').value = workspace.name;
       }
 
       K.gid('K_saveChooseTarget').addEventListener('change', this.K_saveChooseTarget_changeListener.bind(this));
@@ -1253,13 +1343,13 @@ else {
       K.ls.set('ewc', cells);
     }
 
-    static saveToLocalStorage(data) {
+    static saveToLocalStorage(data, saveAs) {
       let _this = this;
 
       let cells = K.ls.get('ewc');
       cells = cells ? JSON.parse(cells) : {};
 
-      if (cells[data.name]) {
+      if (cells[data.name] && saveAs) {
         let popup = new Attention.Confirmation({
           situation: 'information calm',
           title: 'Replacing entry',
@@ -1321,7 +1411,7 @@ else {
     }
 
 
-    static save(name, target, description = '', rights = 0) {
+    static save(args) {
       let wholeCells = workshop.cellsInUse;
       let workspace = workshop.workspace;
 
@@ -1339,25 +1429,36 @@ else {
       }
 
       let currentCube = tomni.getCurrentCell().getTarget();
+      let description = args.description || '';
+      let author = 'KrzysztofKruk'; // account.account.username; // TEMP
+      let uuid = args.saveAs ? K.uuid() : (workspace.uuid || K.uuid());
+      let rights = args.rights || 0;
 
       let data = {
         cells: cells,
-        name: name,
+        name: args.name,
         description: description,
-        author: account.account.username,
+        author: author,
         rights: rights,
         active: workshop.active,
-        target: target,
-        uuid: workspace.uuid || K.uuid(),
+        target: args.target,
+        uuid: uuid,
         worldPosition: this.getWorldPosition(),
         date: new Date().toISOString().split('.')[0], // the last part to get rid of the milliseconds part and the timezone designator        
         lastSelectedCube: currentCube ? currentCube[0].id : null
       };
 
-      switch (target) {
-        case 'server': this.saveToServer(data); break;
-        case 'localStorage': this.saveToLocalStorage(data); break;
-        case 'file': this.saveToFile(data); break;
+      workspace.name = args.name;
+      workspace.description = description;
+      workspace.rights = rights;
+      workspace.uuid = uuid;
+      workspace.target = args.target;
+      workspace.author = author;
+
+      switch (args.target) {
+        case 'server': this.saveToServer(data, args.saveAs); break;
+        case 'localStorage': this.saveToLocalStorage(data, args.saveAs); break;
+        case 'file': this.saveToFile(data, args.saveAs); break;
       }
 
     }
@@ -1376,7 +1477,20 @@ else {
         tomni.notificationManager.addChip({title: 'Name field cannot be empty'});
         return;
       }
-      this.constructor.save(name, target, description, rights);
+
+      this.constructor.save({
+        name: name,
+        target: target,
+        description: description,
+        rights: rights,
+        saveAs: true
+      });
+
+      workshop.infoPanel.author = '<i>[you]</i>';
+      workshop.infoPanel.name = name;
+      workshop.infoPanel.description = description;
+      workshop.infoPanel.rights = rights;
+      workshop.infoPanel.location = target;
 
       super.confirmCallback();
     }
@@ -1482,7 +1596,7 @@ else {
       K.XHR({
         url: serverPath + 'delete_workspace.php',
         method: 'POST',
-        data: 'uuid=' + uuid + '&author=' + account.account.username,
+        data: 'uuid=' + uuid + '&author=KrzysztofKruk', // + account.account.username, // TEMP
         success: function (result) {
           if (result && result === 'ok') {
             row.remove().draw();
@@ -1533,7 +1647,7 @@ else {
               row.description || '',
               Object.keys(row.cells).join(', '),
               row.date || '',
-              account.account.username,
+              'KrzysztofKruk', //account.account.username, // TEMP
               '',
               'localStorage',
               '<button>Delete</button>',
@@ -1551,9 +1665,14 @@ else {
       K.XHR({
         method: 'POST',
         url: serverPath + 'get_workspaces.php',
-        data: 'author=' + account.account.username,
+        data: 'author=KrzysztofKruk',// + account.account.username, // TEMP
         success: function (result) {
           if (!result) {
+            return;
+          }
+
+          if (result === 'empty') {
+            callback();
             return;
           }
 
@@ -1566,7 +1685,7 @@ else {
               date: row[3],
               author: row[4],
               rights: row[5],
-              source: row[6],
+              target: row[6],
               uuid: row[7],
               worldPosition: JSON.parse(row[8]),
               active: row[9],
@@ -1578,7 +1697,7 @@ else {
             delete row[9];
             delete row[10];
             array[index][2] = Object.keys(JSON.parse(row[2])).join(', ');
-            array[index][7] = data.author === account.account.username ? '<button>Delete</button>' : '';
+            array[index][7] = data.author === 'KrzysztofKruk' /*account.account.username TEMP */ ? '<button>Delete</button>' : '';
             array[index][8] = data;
             
           });
@@ -1588,12 +1707,10 @@ else {
     }
 
     fillListHelper(entries) {
-      if (!entries) {
-        return;
-      }
-
       this.table.clear();
-      this.table.rows.add(entries);
+      if (entries) {
+        this.table.rows.add(entries);
+      }
       this.table.draw();
     }
 
@@ -1761,8 +1878,8 @@ else {
     }
 
       
-    settings =  new Settings();
-    settings.addCategory();
+    // settings =  new Settings();
+    // settings.addCategory();
 
     K.injectJS(`
       (function (open) {
@@ -1798,7 +1915,7 @@ else {
       tomni.prefs.set('outlineGlowIntensity', originals.glow);
       tomni.prefs.set('playerActivityIcons', originals.activityIcons);
       if (originals.activityIcons) {
-        tomni.threeD.showPlayerActivitiyIcons();
+        // tomni.threeD.showPlayerActivitiyIcons(); // TEMP (?)
       }
       K.ls.remove('workshop-originals');
     }
@@ -1806,9 +1923,9 @@ else {
 
   
   let intv = setInterval(function () {
-    if (typeof account === 'undefined' || !account.account.uid) {
-      return;
-    }
+    // if (typeof account === 'undefined' || !account.account.uid) { // TEMP
+      // return; // TEMP
+    // }  // TEMP
 
     clearInterval(intv);
     main();
