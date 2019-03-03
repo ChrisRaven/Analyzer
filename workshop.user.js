@@ -340,98 +340,7 @@ else {
   };
 
 
-  function Settings() {
-    let target;
-    
-    this.setTarget = function (selector) {
-      target = selector;
-    };
-    
-    this.getTarget = function () {
-      return target;
-    };
-    
-    this.addCategory = function (id = 'ews-workshop-settings-group', name = 'Workshop', mainTarget = 'settingsMenu') {
-      if (!K.gid(id)) {
-        $('#' + mainTarget).append(`
-          <div id="${id}" class="settings-group ews-settings-group invisible">
-            <h1>${name}</h1>
-          </div>
-        `);
-      }
-      
-      this.setTarget($('#' + id));
-    };
 
-    this.addOption = function (options) {
-      let settings = {
-        name: '',
-        id: '',
-        defaultState: false,
-        indented: false
-      };
-
-      $.extend(settings, options);
-      let storedState = K.ls.get(settings.id);
-      let state;
-
-      if (storedState === null) {
-        K.ls.set(settings.id, settings.defaultState);
-        state = settings.defaultState;
-      }
-      else {
-        state = storedState.toLowerCase() === 'true';
-      }
-
-      target.append(`
-        <div class="setting" id="${settings.id}-wrapper">
-          <span>${settings.name}</span>
-          <div class="checkbox ${state ? 'on' : 'off'}">
-            <div class="checkbox-handle"></div>
-            <input type="checkbox" id="${settings.id}" style="display: none;" ${state ? ' checked' : ''}>
-          </div>
-        </div>
-      `);
-      
-      if (settings.indented) {
-        K.gid(settings.id).parentNode.parentNode.style.marginLeft = '30px';
-      }
-      
-      $(`#${settings.id}-wrapper`).click(function (evt) {
-        evt.stopPropagation();
-
-        let $elem = $(this).find('input');
-        let elem = $elem[0];
-        let newState = !elem.checked;
-
-        K.ls.set(settings.id, newState);
-        elem.checked = newState;
-
-        $elem.add($elem.closest('.checkbox')).removeClass(newState ? 'off' : 'on').addClass(newState ? 'on' : 'off');
-        $(document).trigger('ews-setting-changed', {setting: settings.id, state: newState});
-      });
-      
-      $(document).trigger('ews-setting-changed', {setting: settings.id, state: state});
-    };
-    
-    this.getValue = function (optionId) {
-      let val = K.ls.get(optionId);
-      
-      if (val === null) {
-        return undefined;
-      }
-      if (val.toLowerCase() === 'true') {
-        return true;
-      }
-      if (val.toLowerCase() === 'false') {
-        return false;
-      }
-
-      return val;
-    };
-  }
-
-  // let settings;
   let workshop;
 
 
@@ -522,6 +431,7 @@ else {
       $(document).keyup(this.heatmapHotKeysBlocker);
       this.controlPanel.show();
       this.infoPanel.show();
+      this.infoPanel.clear();
       this.list.show();
       this.changeAccuracyContainerVisibility('none');
     }
@@ -729,7 +639,7 @@ else {
       this.node.id = 'K_controlPanel';
       this.node.style.display = 'none';
       this.node.innerHTML = `
-        <div id="K_addCellsButton">Add</div>
+        <div id="K_addCellsButton">Add Cells</div>
         <div id="K_new">New</div>
         <div id="K_save">Save</div>
         <div id="K_saveAs">SaveAs</div>
@@ -794,6 +704,7 @@ else {
     K_new_clickListener_confirm() {
       this.workshop.removeAll();
       this.workshop.workspace.clear();
+      this.workshop.infoPanel.clear();
       this.workshop.unsaved = false;
     }
 
@@ -973,7 +884,14 @@ else {
         </table>
       `;
       document.body.append(this.panel);
+    }
 
+    clear() {
+      this.name = '';
+      this.description = '';
+      this.author = '';
+      this.location = '';
+      this.rights = '';
     }
 
     set name(name) {
@@ -993,7 +911,12 @@ else {
     }
 
     set author(author) {
-      K.gid('K_infoPanel_author').innerHTML = author;
+      if (!author) {
+        K.gid('K_infoPanel_author').innerHTML = '<i>[you]</i>';
+      }
+      else {
+        K.gid('K_infoPanel_author').innerHTML = author;
+      }
     }
 
     set location(location) {
@@ -1877,9 +1800,6 @@ else {
       K.addCSSFile('https://chrisraven.github.io/EyeWire-Workshop/styles.css?v=7');
     }
 
-      
-    // settings =  new Settings();
-    // settings.addCategory();
 
     K.injectJS(`
       (function (open) {
