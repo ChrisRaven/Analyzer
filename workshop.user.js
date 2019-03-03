@@ -807,6 +807,10 @@ else {
 
 
     K_document_cellLoadedListener(evt) {
+      if (this.workshop.cellsInUse[evt.detail.cellId]) {
+        this.workshop.cellsInUse[evt.detail.cellId].cubes = evt.detail.cubeIds;
+      }
+
       if (!this.imported) {
         return;
       }
@@ -817,9 +821,6 @@ else {
         return;
       }
 
-      if (this.workshop.cellsInUse[evt.detail.cellId]) {
-        this.workshop.cellsInUse[evt.detail.cellId].cubes = evt.detail.cubeIds;
-      }
 
       workshop.changeCellColor(cellId, cell.color);
       if (cell.color) {
