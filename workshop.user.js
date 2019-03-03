@@ -225,7 +225,7 @@ g.ext.buttons["select"+c+"s"]={text:p("select"+c+"s","Select "+b+"s"),className:
 
 
 
-let LOCAL = true;
+let LOCAL = false;
 let serverPath = '';
 if (LOCAL) {
   console.log('%c--== TURN OFF "LOCAL" BEFORE RELEASING!!! ==--', "color: red; font-style: italic; font-weight: bold;");
@@ -820,7 +820,7 @@ else {
     }
 
     K_save_clickListener() {
-      let currentUser = 'KrzysztofKruk'; // account.account.username; // TEMP
+      let currentUser = account.account.username;
       let workspace = this.workshop.workspace;
 
       if (
@@ -1430,7 +1430,7 @@ else {
 
       let currentCube = tomni.getCurrentCell().getTarget();
       let description = args.description || '';
-      let author = 'KrzysztofKruk'; // account.account.username; // TEMP
+      let author = account.account.username;
       let uuid = args.saveAs ? K.uuid() : (workspace.uuid || K.uuid());
       let rights = args.rights || 0;
 
@@ -1596,7 +1596,7 @@ else {
       K.XHR({
         url: serverPath + 'delete_workspace.php',
         method: 'POST',
-        data: 'uuid=' + uuid + '&author=KrzysztofKruk', // + account.account.username, // TEMP
+        data: 'uuid=' + uuid + '&author=' + account.account.username,
         success: function (result) {
           if (result && result === 'ok') {
             row.remove().draw();
@@ -1647,7 +1647,7 @@ else {
               row.description || '',
               Object.keys(row.cells).join(', '),
               row.date || '',
-              'KrzysztofKruk', //account.account.username, // TEMP
+              account.account.username,
               '',
               'localStorage',
               '<button>Delete</button>',
@@ -1665,7 +1665,7 @@ else {
       K.XHR({
         method: 'POST',
         url: serverPath + 'get_workspaces.php',
-        data: 'author=KrzysztofKruk',// + account.account.username, // TEMP
+        data: 'author=' + account.account.username,
         success: function (result) {
           if (!result) {
             return;
@@ -1697,7 +1697,7 @@ else {
             delete row[9];
             delete row[10];
             array[index][2] = Object.keys(JSON.parse(row[2])).join(', ');
-            array[index][7] = data.author === 'KrzysztofKruk' /*account.account.username TEMP */ ? '<button>Delete</button>' : '';
+            array[index][7] = data.author === account.account.username ? '<button>Delete</button>' : '';
             array[index][8] = data;
             
           });
@@ -1915,7 +1915,7 @@ else {
       tomni.prefs.set('outlineGlowIntensity', originals.glow);
       tomni.prefs.set('playerActivityIcons', originals.activityIcons);
       if (originals.activityIcons) {
-        // tomni.threeD.showPlayerActivitiyIcons(); // TEMP (?)
+        tomni.threeD.showPlayerActivitiyIcons();
       }
       K.ls.remove('workshop-originals');
     }
@@ -1923,9 +1923,9 @@ else {
 
   
   let intv = setInterval(function () {
-    // if (typeof account === 'undefined' || !account.account.uid) { // TEMP
-      // return; // TEMP
-    // }  // TEMP
+    if (typeof account === 'undefined' || !account.account.uid) {
+      return;
+    }
 
     clearInterval(intv);
     main();
