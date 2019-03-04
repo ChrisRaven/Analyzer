@@ -811,16 +811,11 @@ else {
         this.workshop.cellsInUse[evt.detail.cellId].cubes = evt.detail.cubeIds;
       }
 
-      if (!this.imported) {
-        return;
-      }
-
       let cellId = evt.detail.cellId;
-      let cell = this.imported.cells[cellId];
+      let cell = this.workshop.cellsInUse[cellId];
       if (!cell) {
         return;
       }
-
 
       workshop.changeCellColor(cellId, cell.color);
       if (cell.color) {
@@ -828,6 +823,11 @@ else {
         listRow.querySelector('.K_listColor_wrapper').style.backgroundColor = cell.color;
         listRow.querySelector('.K_listColor').value = cell.color;
       }
+
+      if (!this.imported) {
+        return;
+      }
+
       delete this.imported.cells[cellId];
 
       if (!Object.keys(this.imported.cells).length) {
