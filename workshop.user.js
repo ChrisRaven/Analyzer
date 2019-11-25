@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Workshop
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.0.0.1
 // @description  Workshop for EyeWire
 // @author       Krzysztof Kruk
 // @match        https://*.eyewire.org/*
@@ -1816,6 +1816,9 @@ else {
               }
       
               result = JSON.parse(result);
+              if (!result.tasks) {
+                return;
+              }
               let ids = result.tasks.map(el => el.id);
 
               var evt = new CustomEvent('K_cellLoaded', {detail: {cellId: cellId, cubeIds: ids}});
